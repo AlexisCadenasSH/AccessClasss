@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "AccessClass",
+    "slug": "AccessClass",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/logo_carga.png",
+    "scheme": "restate",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/logo_carga.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/logo_carga.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/logo_carga.png",
+          "resizeMode": "cover",
+          "backgroundColor": "#ffffff",
+          "enableFullScreenImage_Legacy": true
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Bebas_Neue/BebasNeue-Regular.ttf",
+            "./assets/fonts/Big_Shoulders_Stencil/static/BigShouldersStencil_18pt-Black.ttf",
+            "./assets/fonts/Big_Shoulders_Stencil/static/BigShouldersStencil_18pt-Bold.ttf",
+            "./assets/fonts/Big_Shoulders_Stencil/static/BigShouldersStencil_18pt-Light.ttf",
+            "./assets/fonts/Big_Shoulders_Stencil/static/BigShouldersStencil_18pt-Medium.ttf",
+            "./assets/fonts/Big_Shoulders_Stencil/BigShouldersStencil-VariableFont_opsz,wght.ttf",
+            "./assets/fonts/Chakra_Petch/ChakraPetch-Bold.ttf ",
+            "./assets/fonts/Chakra_Petch/ChakraPetch-Italic.ttf",
+            "./assets/fonts/Chakra_Petch/ChakraPetch-Light.ttf",
+            "./assets/fonts/Chakra_Petch/ChakraPetch-Medium.ttf"
+          ]
+        }
+      ]
+    ],
+    
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
