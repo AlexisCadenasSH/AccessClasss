@@ -1,6 +1,6 @@
 import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import React, { useEffect, useState } from 'react';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router'; // Importa router
 import { supabase } from '@/utils/supabase';
 import { useGlobalContext } from '@/lib/global-provider';
 
@@ -15,7 +15,6 @@ export default function AssignedSubjects() {
       if (!user?.email) return;
 
       try {
-        // 1. Obtener el ID del maestro y nombre desde la tabla usuarios
         const { data: usuario, error: usuarioError } = await supabase
           .from('usuarios')
           .select('id, nombre')
@@ -30,7 +29,6 @@ export default function AssignedSubjects() {
 
         setTeacherName(usuario.nombre || 'Nombre no disponible');
 
-        // 2. Obtener materias asignadas
         const { data: materiasAsignadas, error: materiasError } = await supabase
           .from('materia_usuario')
           .select(`
@@ -87,7 +85,10 @@ export default function AssignedSubjects() {
             <Text className="text-center text-gray-500">No hay materias asignadas</Text>
           ) : (
             subjects.map((subject, index) => (
-              <TouchableOpacity key={index}>
+              <TouchableOpacity
+                key={index}
+                onPress={() => router.push({ pathname: '/asistencias', params: { materia: subject } })}
+              >
                 <View className="bg-white/80 px-4 py-3 rounded-xl shadow border border-gray-200">
                   <Text className="text-lg font-semibold text-black text-center">{subject}</Text>
                 </View>
@@ -104,3 +105,4 @@ export default function AssignedSubjects() {
     </SafeAreaView>
   );
 }
+
