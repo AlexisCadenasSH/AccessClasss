@@ -64,7 +64,8 @@
             "./assets/fonts/Chakra_Petch/ChakraPetch-Medium.ttf"
           ]
         }
-      ]
+      ],
+      "expo-barcode-scanner"
     ],
     "experiments": {
       "typedRoutes": true
