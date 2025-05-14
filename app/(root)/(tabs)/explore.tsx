@@ -84,27 +84,46 @@ const Explore = () => {
       }
     }
     const id_horario = horarioMasCercano.id; // Sustituye con el horario actual relacionado
-    const { data: relacion, error: errorRelacion } = await supabase
-      .from('horarios')
-      .select('id, id_materia_usuario, materia_usuario(id, materia(id, nombre))')
-      .eq('id', horarioMasCercano.id)
-      .single();
+    console.log("el id es", id_horario);
 
-    if (errorRelacion || !relacion) {
-      Alert.alert('❌ Error', 'No se pudo encontrar la relación con la materia.');
-      return;
-    }
+        //materia_usuario3333333333333333333333333333333333333333333333
+    const { data: relacion, error } = await supabase
+  .from('horarios')
+  .select(`
+    id,
+    materia_usuario (
+      id,
+      materia: id_materia (
+        id,
+        nombre
+      )
+    )
+  `)
+  .eq('id', horarioMasCercano.id)
+  .single();
+
+if (error || !relacion) {
+  Alert.alert('❌ Error', 'No se pudo encontrar la relación con la materia.');
+  console.log(error);
+  return;
+}
+
+const nombreMateria = relacion.materia_usuario; //relacion?.materia_usuario?.materias?.nombre;
+console.log(nombreMateria)
 
     // 2. Obtener el nombre de la materia
 
+    const hoy = new Date().toISOString().split('T')[0]; // '2025-05-14'
     const { data: existente, error: errorBusqueda } = await supabase
       .from('asistencias')
       .select('*')
       .eq('id_usuario', id_usuario)
       .eq('id_horario', id_horario)
-      .eq('fecha', fecha)
+      .eq('fecha', hoy)
       .single();
 
+
+      //iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
     if (errorBusqueda && errorBusqueda.code !== 'PGRST116') {
       console.error('Error al verificar asistencia existente:', errorBusqueda);
       Alert.alert('❌ Error', 'No se pudo verificar la asistencia.');
@@ -140,7 +159,7 @@ const Explore = () => {
       // No hay registro → Confirmar entrada
         Alert.alert(
         'Confirmar asistencia',
-        "¿Deseas registrar tu entrada para la materia: ${materia.nombre}?",
+        "¿Deseas registrar tu entrada para la materia:," + relacion.materia_usuario,
         [
           { text: 'Cancelar', style: 'cancel' },
           {
@@ -152,7 +171,7 @@ const Explore = () => {
                   {
                     id_usuario: id_usuario,
                     id_horario: id_horario,
-                    fecha: fecha,
+                    fecha: hoy,
                     escaneo_inicio: horaActual,
                     asistencia: true,
                   },
