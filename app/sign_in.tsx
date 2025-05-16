@@ -2,9 +2,11 @@ import { View, Text, ScrollView, Image, TouchableOpacity, ImageBackground, Alert
 import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import images from '@/constants/images';
-import { login } from '@/lib/appwrite';
+import { login, account } from '@/lib/appwrite';
 import { useGlobalContext } from '@/lib/global-provider';
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
+import { supabase } from '@/utils/supabase';
+
 
 const SignIn = () => {
   
@@ -12,12 +14,41 @@ const SignIn = () => {
 
   if (!loading && isLoggedIn) return <Redirect href="/" />
 
-  const handleLogin = async () => {
-    const result = await login();
+      const handleLogin = async () => {
+      const result = await login();
 
-    if (result) {
-      refetch();
-      console.log('Login Success');
+      if (result) {
+        refetch();
+        console.log('Login Success');
+
+        const session = await account.get();
+        const userEmail = session.email
+
+        if (!userEmail) {
+          Alert.alert("Error", "No se pudo obtener el correo del usuario.");
+          return;
+        }
+
+      // Buscar el ID del usuario en Supabase a partir del correo
+      const { data, error } = await supabase
+        .from("usuarios")
+        .select("id")
+        .eq("correo", userEmail)
+        .single();
+
+      if (error || !data) {
+        console.error("Error al obtener ID del usuario desde Supabase:", error?.message);
+        Alert.alert("Error", "No se encontró un usuario con ese correo.");
+        return;
+      } 
+
+      const userId = data.id;
+      console.log("el id es: ", userId);
+      router.push({
+        pathname: "/",
+        params: {userId: userId.toString()},
+      });
+      
     } else {
       Alert.alert('Error', 'Failed to login');
     }

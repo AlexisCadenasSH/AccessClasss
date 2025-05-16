@@ -1,18 +1,31 @@
-import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import React, { useEffect, useState } from 'react';
-import { Link, router } from 'expo-router'; // Importa router
+import { router } from 'expo-router';
 import { supabase } from '@/utils/supabase';
 import { useGlobalContext } from '@/lib/global-provider';
 
+type MateriaAsignada = {
+  id: number;
+  materias: {
+    nombre: string;
+  } | null;
+};
+
 export default function AssignedSubjects() {
   const { user } = useGlobalContext();
-  const [subjects, setSubjects] = useState<string[]>([]);
+
+  const [subjects, setSubjects] = useState<{ id: number; nombre: string }[]>([]);
   const [teacherName, setTeacherName] = useState('');
+  const [teacherId, setTeacherId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAssignedSubjects = async () => {
-      if (!user?.email) return;
+      if (!user?.email) {
+        setLoading(false);
+        Alert.alert('Error', 'No hay usuario autenticado');
+        return;
+      }
 
       try {
         const { data: usuario, error: usuarioError } = await supabase
@@ -27,6 +40,7 @@ export default function AssignedSubjects() {
           return;
         }
 
+        setTeacherId(usuario.id);
         setTeacherName(usuario.nombre || 'Nombre no disponible');
 
         const { data: materiasAsignadas, error: materiasError } = await supabase
@@ -44,9 +58,12 @@ export default function AssignedSubjects() {
           return;
         }
 
-        const nombresMaterias = materiasAsignadas
-          .map((item: any) => item.materias?.nombre)
-          .filter(Boolean);
+        const nombresMaterias = (materiasAsignadas as unknown as MateriaAsignada[])
+          .filter((item) => item.materias?.nombre)
+          .map((item) => ({
+            id: item.id,
+            nombre: item.materias!.nombre,
+          }));
 
         setSubjects(nombresMaterias);
       } catch (err) {
@@ -64,45 +81,55 @@ export default function AssignedSubjects() {
     <SafeAreaView className="h-full bg-white">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="pb-10 px-6">
 
-        {/* Header */}
         <View className="items-center mt-6">
           <Text className="text-3xl font-bold text-red-800">Materias</Text>
           <Text className="text-xl font-semibold text-red-800 -mt-2">Asignadas</Text>
         </View>
 
-        {/* Nombre del maestro */}
         <View className="items-center mt-4">
           <Text className="bg-red-700 text-white px-4 py-2 rounded-full font-semibold">
             {teacherName}
           </Text>
         </View>
 
-        {/* Lista de materias */}
         <View className="mt-6 gap-4">
           {loading ? (
-            <Text className="text-center text-gray-500">Cargando materias...</Text>
+            <View className="items-center mt-10">
+              <ActivityIndicator size="large" color="#DC2626" />
+              <Text className="text-center text-gray-500 mt-2">Cargando materias...</Text>
+            </View>
           ) : subjects.length === 0 ? (
             <Text className="text-center text-gray-500">No hay materias asignadas</Text>
           ) : (
-            subjects.map((subject, index) => (
+            subjects.map((subject) => (
               <TouchableOpacity
-                key={index}
-                onPress={() => router.push({ pathname: '/asistencias', params: { materia: subject } })}
+                key={subject.id}
+                onPress={() =>
+                  router.push({
+                    pathname: "/asistencias",
+                    params: {
+                      id_materia: subject.id.toString(),
+                      userId: teacherId?.toString() || ''
+                    },
+                  })
+                }
+                accessible
+                accessibilityLabel={`Ver asistencia de ${subject.nombre}`}
               >
                 <View className="bg-white/80 px-4 py-3 rounded-xl shadow border border-gray-200">
-                  <Text className="text-lg font-semibold text-black text-center">{subject}</Text>
+                  <Text className="text-lg font-semibold text-black text-center">
+                    {subject.nombre}
+                  </Text>
                 </View>
               </TouchableOpacity>
             ))
           )}
         </View>
 
-        {/* Botón de regreso */}
-        <View className="items-center mt-6">
-          <Link href="/" className="text-red-600 underline text-base">Volver al inicio</Link>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+
 

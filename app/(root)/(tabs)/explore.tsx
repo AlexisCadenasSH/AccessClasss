@@ -89,16 +89,7 @@ const Explore = () => {
         //materia_usuario3333333333333333333333333333333333333333333333
     const { data: relacion, error } = await supabase
   .from('horarios')
-  .select(`
-    id,
-    materia_usuario (
-      id,
-      materia: id_materia (
-        id,
-        nombre
-      )
-    )
-  `)
+  .select(`id, materia_usuario (id, materia: id_materia ( id, nombre))`)
   .eq('id', horarioMasCercano.id)
   .single();
 
@@ -108,8 +99,8 @@ if (error || !relacion) {
   return;
 }
 
-const nombreMateria = relacion.materia_usuario; //relacion?.materia_usuario?.materias?.nombre;
-console.log(nombreMateria)
+const nombreMateria = relacion.materia_usuario[0]; //relacion?.materia_usuario?.materias?.nombre;
+console.log("la materia es"+nombreMateria)
 
     // 2. Obtener el nombre de la materia
 
@@ -159,7 +150,7 @@ console.log(nombreMateria)
       // No hay registro → Confirmar entrada
         Alert.alert(
         'Confirmar asistencia',
-        "¿Deseas registrar tu entrada para la materia:," + relacion.materia_usuario,
+        "¿Deseas registrar tu entrada para la materia:," + relacion.materia_usuario[0],
         [
           { text: 'Cancelar', style: 'cancel' },
           {

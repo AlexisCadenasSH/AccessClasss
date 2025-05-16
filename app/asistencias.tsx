@@ -1,59 +1,91 @@
-import { View, Text, ScrollView, Pressable, ImageBackground, SafeAreaView, Image } from 'react-native';
-import React from 'react';
-import { router } from 'expo-router';
-import images from '@/constants/images';
+import { View, Text, SafeAreaView, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { supabase } from '@/utils/supabase';
 
-const asistenciasData = [
-  { fecha: '15/01/25', hora: '11:03', asistencia: true },
-  { fecha: '15/01/25', hora: '15:00', asistencia: true },
-  { fecha: '16/01/25', hora: '08:03', asistencia: true },
-  { fecha: '16/01/25', hora: '14:03', asistencia: true },
-  { fecha: '17/01/25', hora: '-- --', asistencia: false },
-];
+export default function AsistenciasScreen() {
+  const { id_materia, userId } = useLocalSearchParams();
+  const [loading, setLoading] = useState(true);
+  const [asistencias, setAsistencias] = useState<any[]>([]);
 
-export default function Asistencias() {
+  useEffect(() => {
+    const fetchAsistencias = async () => {
+      if (!id_materia) {
+        Alert.alert('Error', 'No se proporcionó el ID de la materia');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // 1. Obtener los horarios vinculados a esta materia_usuario
+        const { data: horariosRelacionados, error: errorHorarios } = await supabase
+          .from('horarios')
+          .select('id')
+          .eq('id_materia_usuario', Number(id_materia));
+
+        if (errorHorarios) {
+          console.error('Error al obtener horarios:', errorHorarios.message);
+          Alert.alert('Error', 'No se pudieron obtener los horarios relacionados');
+          return;
+        }
+
+        const idsHorarios = horariosRelacionados?.map((h) => h.id) || [];
+
+        if (idsHorarios.length === 0) {
+          setAsistencias([]);
+          return;
+        }
+
+        // 2. Obtener asistencias filtradas por esos horarios
+        const { data: asistenciasData, error: errorAsistencias } = await supabase
+          .from('asistencias')
+          .select('*')
+          .in('id_horario', idsHorarios);
+
+        if (errorAsistencias) {
+          console.error('Error al obtener asistencias:', errorAsistencias.message);
+          Alert.alert('Error', 'No se pudieron obtener las asistencias');
+          return;
+        }
+
+        setAsistencias(asistenciasData || []);
+      } catch (err) {
+        console.error('Error inesperado:', err);
+        Alert.alert('Error', 'Algo salió mal al cargar asistencias');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAsistencias();
+  }, [id_materia]);
+
   return (
-    <SafeAreaView className="flex-1">
-      <ImageBackground source={images.fondogris} className="flex-1" resizeMode="cover">
-        <View className="bg-white/90 mx-4 my-6 p-4 rounded-2xl">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-red-800 text-2xl font-bold">Asistencias</Text>
-            <Image source={images.logo} className="w-10 h-10" resizeMode="contain" />
+    <SafeAreaView className="h-full bg-white">
+      <ScrollView className="p-4">
+        <Text className="text-2xl font-bold text-red-800 text-center mb-4">Registro de Asistencias</Text>
+
+        {loading ? (
+          <View className="items-center mt-10">
+            <ActivityIndicator size="large" color="#DC2626" />
+            <Text className="text-gray-500 mt-2">Cargando asistencias...</Text>
           </View>
-
-          <View className="flex-row justify-between mb-2">
-            <Text className="bg-red-700 text-white text-xs px-3 py-1 rounded-md">FECHA</Text>
-            <Text className="bg-red-700 text-white text-xs px-3 py-1 rounded-md">ENTRADA</Text>
-            <Text className="bg-red-700 text-white text-xs px-3 py-1 rounded-md">ASISTENCIA</Text>
-          </View>
-
-          <ScrollView className="h-80">
-            {asistenciasData.map((item, idx) => (
-              <View
-                key={idx}
-                className="flex-row justify-between items-center px-3 py-2 my-1 rounded-xl bg-white/80"
-              >
-                <Text className="text-sm">{item.fecha}</Text>
-                <Text className="bg-red-600 text-white px-3 py-1 rounded-md text-sm">{item.hora}</Text>
-                {item.asistencia ? (
-                  <Text className="text-green-600 text-xl font-bold">✓</Text>
-                ) : (
-                  <Text className="text-red-600 text-xl font-bold">✗</Text>
-                )}
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-
-        <Pressable
-          onPress={() => router.push('/(root)/(tabs)/profile')}
-          className="absolute bottom-6 right-6 bg-red-700 p-4 rounded-full shadow-lg"
-        >
-          <Text className="text-white text-lg font-bold">←</Text>
-        </Pressable>
-      </ImageBackground>
+        ) : asistencias.length === 0 ? (
+          <Text className="text-center text-gray-500">No hay asistencias registradas</Text>
+        ) : (
+          asistencias.map((asistencia, index) => (
+            <View key={index} className="mb-3 bg-gray-100 rounded-xl p-4 shadow">
+              <Text className="text-black font-semibold">Fecha: {asistencia.fecha}</Text>
+              <Text>Inicio: {asistencia.escaneo_inicio || 'N/A'}</Text>
+              <Text>Fin: {asistencia.escaneo_fin || 'N/A'}</Text>
+              <Text>Asistencia: {asistencia.asistencia ? '✅' : '❌'}</Text>
+            </View>
+          ))
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
+
 
 
