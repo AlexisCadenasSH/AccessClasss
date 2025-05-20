@@ -8,47 +8,59 @@ export default function AsistenciasScreen() {
   const [loading, setLoading] = useState(true);
   const [asistencias, setAsistencias] = useState<any[]>([]);
 
+  let user_Id = Number(userId);
+  let idMateria = Number(id_materia);
+
+  console.log("el usuario es " +user_Id);
+  console.log("la materia es " +idMateria);
+
   useEffect(() => {
     const fetchAsistencias = async () => {
-      if (!id_materia) {
-        Alert.alert('Error', 'No se proporcionó el ID de la materia');
+      if (!id_materia || !userId) {
+        Alert.alert('Error', 'Faltan parámetros: ID de materia o del maestro');
         setLoading(false);
         return;
       }
 
       try {
-        // 1. Obtener los horarios vinculados a esta materia_usuario
-        const { data: horariosRelacionados, error: errorHorarios } = await supabase
-          .from('horarios')
-          .select('id')
-          .eq('id_materia_usuario', Number(id_materia));
-
-        if (errorHorarios) {
-          console.error('Error al obtener horarios:', errorHorarios.message);
-          Alert.alert('Error', 'No se pudieron obtener los horarios relacionados');
-          return;
-        }
-
-        const idsHorarios = horariosRelacionados?.map((h) => h.id) || [];
-
-        if (idsHorarios.length === 0) {
-          setAsistencias([]);
-          return;
-        }
-
-        // 2. Obtener asistencias filtradas por esos horarios
-        const { data: asistenciasData, error: errorAsistencias } = await supabase
+        const { data, error } = await supabase
           .from('asistencias')
-          .select('*')
-          .in('id_horario', idsHorarios);
+          .select(`
+            fecha,
+            escaneo_inicio,
+            escaneo_fin,
+            asistencia,
+            id_horario,
+            horarios (
+              id,
+              dia_semana,
+              hora_inicio,
+              id_materia_usuario,
+              materia_usuario (
+                id,
+                id_materia,
+                materias (
+                  id,
+                  nombre
+                )
+              )
+            )
+          `)
+          .eq('id_usuario', user_Id)
+          .eq('horarios.materia_usuario.materias.id', idMateria);
 
-        if (errorAsistencias) {
-          console.error('Error al obtener asistencias:', errorAsistencias.message);
+        if (error) {
+          console.error('Error al obtener asistencias:', error.message);
           Alert.alert('Error', 'No se pudieron obtener las asistencias');
           return;
         }
+        
+        console.log(JSON.stringify(data, null, 2));
+        console.log('📦 Resultado completo:', JSON.stringify(data, null, 2));
 
-        setAsistencias(asistenciasData || []);
+        
+        
+        setAsistencias(data || []);
       } catch (err) {
         console.error('Error inesperado:', err);
         Alert.alert('Error', 'Algo salió mal al cargar asistencias');
@@ -58,7 +70,7 @@ export default function AsistenciasScreen() {
     };
 
     fetchAsistencias();
-  }, [id_materia]);
+  }, [id_materia, userId]);
 
   return (
     <SafeAreaView className="h-full bg-white">
@@ -79,6 +91,12 @@ export default function AsistenciasScreen() {
               <Text>Inicio: {asistencia.escaneo_inicio || 'N/A'}</Text>
               <Text>Fin: {asistencia.escaneo_fin || 'N/A'}</Text>
               <Text>Asistencia: {asistencia.asistencia ? '✅' : '❌'}</Text>
+              <Text className="mt-2 text-sm text-gray-600">
+                Día: {asistencia.horarios?.dia_semana} | Hora: {asistencia.horarios?.hora_inicio}
+              </Text>
+              <Text className="text-sm text-gray-600">
+                Materia: {asistencia.horarios?.materia_usuario?.materias?.nombre}
+              </Text>
             </View>
           ))
         )}
@@ -86,6 +104,3 @@ export default function AsistenciasScreen() {
     </SafeAreaView>
   );
 }
-
-
-
