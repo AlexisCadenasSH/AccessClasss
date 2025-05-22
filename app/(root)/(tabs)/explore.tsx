@@ -1,15 +1,39 @@
+// Importaciones
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { View, Text, Button, StyleSheet, TouchableOpacity, Platform, StatusBar, Alert } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '@/utils/supabase'; // Cliente de Supabase ya configurado
+import { supabase } from '@/utils/supabase';
+import { useGlobalContext } from '@/lib/global-provider';
 
 const Explore = () => {
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
-
+  const [idUsuario, setIdUsuario] = useState<number | null>(null);
+  const { user } = useGlobalContext();
   const codigoValido = 'cetis91';
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+      if (!user?.email) return;
+
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('correo', user.email)
+        .single();
+
+      if (error || !data) {
+        console.error('Error al obtener el id del usuario:', error);
+        return;
+      }
+
+      setIdUsuario(data.id);
+    };
+
+    fetchUserId();
+  }, [user]);
 
   if (!permission) return <View />;
   if (!permission.granted) {
@@ -26,131 +50,91 @@ const Explore = () => {
   }
 
   const registrarAsistencia = async () => {
-    
-
-    const id_usuario = 1; // Sustituye con el ID real del maestro
+    if (!idUsuario) return Alert.alert('❌ Error', 'No se pudo obtener el ID del usuario.');
 
     const fecha = new Date();
-
-    // Obtener el día de la semana (0 = domingo, 1 = lunes, ..., 6 = sábado)
     const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
     const dia = diasSemana[fecha.getDay()];
-    // Obtener horas y minutos
-    const horas = fecha.getHours();
-    const minutos = fecha.getMinutes();
+    const hoy = fecha.toISOString().split('T')[0];
 
-    // Formatear con dos dígitos
-    const formatoDosDigitos = (num: number) => num.toString().padStart(2, '0');
-
-    // Combinar en una sola variable
-    const horaActual = `${formatoDosDigitos(horas)}:${formatoDosDigitos(minutos)}`;
-
-    console.log(`dia y Hora actual:  ${dia} ${horaActual}`);////////hasta aqui funciona bien
-
-    const { data: horarios, error: errorHorarios } = await supabase
-      .from('horarios')
-      .select('id, dia_semana, hora_inicio, id_materia_usuario')
-      .eq('dia_semana', dia)
-      .order('hora_inicio', { ascending: true });
-
-    console.log("horarios hoy: ", horarios)
-
-    if (errorHorarios || !horarios || horarios.length === 0) {
-      Alert.alert('❌ Error', 'No se encontraron horarios para hoy.');
-      return;
-    }
-
-    // Convertimos la hora actual a minutos
-    function timeToMinutes(t: string) {
+    const getMinutes = (t: string) => {
       const [h, m, s] = t.split(':').map(Number);
-      return h * 60 + m + s / 60;
+      return h * 60 + m;
+    };
+    const horaActualMin = fecha.getHours() * 60 + fecha.getMinutes();
+
+    const { data: horarios, error } = await supabase
+      .from('horarios')
+      .select('id, hora_inicio, hora_fin, id_materia_usuario (id_maestro, materia: id_materia (nombre))')
+      .eq('dia_semana', dia);
+
+    if (error || !horarios || horarios.length === 0) {
+      return Alert.alert('❌ Error', 'No tienes clases hoy.');
     }
 
-    var minutosActuales = timeToMinutes(horaActual);
+    const horariosDisponibles = horarios.filter(h => {
+      const inicioMin = getMinutes(h.hora_inicio);
+      return (
+        h.id_materia_usuario?.id_maestro === idUsuario &&
+        horaActualMin >= inicioMin - 10 &&
+        horaActualMin <= inicioMin + 10
+      );
+    });
 
-    // Buscamos el horario más cercano a la hora actualppppppppppppppppppppppppppppppppp
-    let horarioMasCercano = horarios[0];
-    let menorDiferencia = Math.abs(timeToMinutes(horarios[0].hora_inicio) - minutosActuales);
-    console.log("horario mas cercano", horarioMasCercano);
-    console.log("el de menor diferencia", menorDiferencia);
-
-    for (let i = 1; i < horarios.length; i++) {
-      const minutos = timeToMinutes(horarios[i].hora_inicio );
-      const diferencia = Math.abs(minutos - minutosActuales);
-
-      if (diferencia < menorDiferencia) {
-        menorDiferencia = diferencia;
-        horarioMasCercano = horarios[i];
-      }
+    if (horariosDisponibles.length === 0) {
+      return Alert.alert('⏱ Fuera de tiempo', 'No tienes clases dentro del rango permitido de tiempo.');
     }
-    const id_horario = horarioMasCercano.id; // Sustituye con el horario actual relacionado
-    console.log("el id es", id_horario);
 
-        //materia_usuario3333333333333333333333333333333333333333333333
-    const { data: relacion, error } = await supabase
-  .from('horarios')
-  .select(`id, materia_usuario (id, materia: id_materia ( id, nombre))`)
-  .eq('id', horarioMasCercano.id)
-  .single();
+    const horario = horariosDisponibles[0];
+    const nombreMateria = horario.id_materia_usuario?.materia?.nombre || 'Materia desconocida';
+    const horaInicioMin = getMinutes(horario.hora_inicio);
+    const horaFinMin = getMinutes(horario.hora_fin);
 
-if (error || !relacion) {
-  Alert.alert('❌ Error', 'No se pudo encontrar la relación con la materia.');
-  console.log(error);
-  return;
-}
-
-const nombreMateria = relacion.materia_usuario[0]; //relacion?.materia_usuario?.materias?.nombre;
-console.log("la materia es"+nombreMateria)
-
-    // 2. Obtener el nombre de la materia
-
-    const hoy = new Date().toISOString().split('T')[0]; // '2025-05-14'
-    const { data: existente, error: errorBusqueda } = await supabase
+    const { data: asistenciaExistente } = await supabase
       .from('asistencias')
       .select('*')
-      .eq('id_usuario', id_usuario)
-      .eq('id_horario', id_horario)
+      .eq('id_usuario', idUsuario)
+      .eq('id_horario', horario.id)
       .eq('fecha', hoy)
-      .single();
+      .maybeSingle();
 
+    const horaActualStr = `${String(fecha.getHours()).padStart(2, '0')}:${String(fecha.getMinutes()).padStart(2, '0')}`;
 
-      //iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-    if (errorBusqueda && errorBusqueda.code !== 'PGRST116') {
-      console.error('Error al verificar asistencia existente:', errorBusqueda);
-      Alert.alert('❌ Error', 'No se pudo verificar la asistencia.');
-      return;
-    }
+    if (asistenciaExistente) {
+      if (asistenciaExistente.escaneo_fin) {
+        return Alert.alert('✅ Ya registraste salida', 'Ya registraste asistencia completa para esta materia.');
+      }
 
-    if (existente) {
-      // Ya existe entrada → Confirmar salida
-      Alert.alert(
-        '¿Registrar salida?',
-        "Ya registraste tu entrada hoy a las ${existente.escaneo_inicio}. ¿Deseas registrar tu salida ahora?",
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Registrar salida',
-            onPress: async () => {
-              const { error: errorUpdate } = await supabase
-                .from('asistencias')
-                .update({ escaneo_fin: horaActual })
-                .eq('id', existente.id);
+      if (horaActualMin >= horaInicioMin && horaActualMin <= horaFinMin) {
+        return Alert.alert(
+          '¿Registrar salida?',
+          `Ya registraste entrada. ¿Deseas registrar tu salida para ${nombreMateria}?`,
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Registrar salida',
+              onPress: async () => {
+                const { error: errorUpdate } = await supabase
+                  .from('asistencias')
+                  .update({ escaneo_fin: horaActualStr })
+                  .eq('id', asistenciaExistente.id);
 
-              if (errorUpdate) {
-                console.error('Error al registrar salida:', errorUpdate);
-                Alert.alert('❌ Error', 'No se pudo registrar la salida.');
-              } else {
-                Alert.alert('✅ Salida registrada', 'Hora de salida guardada exitosamente.');
+                if (errorUpdate) {
+                  Alert.alert('❌ Error', 'No se pudo registrar la salida.');
+                } else {
+                  Alert.alert('✅ Salida registrada', 'Se registró la salida correctamente.');
+                }
               }
-            },
-          },
-        ]
-      );
+            }
+          ]
+        );
+      } else {
+        return Alert.alert('⏱ Fuera de horario', 'Solo puedes registrar salida durante el horario de clase.');
+      }
     } else {
-      // No hay registro → Confirmar entrada
-        Alert.alert(
-        'Confirmar asistencia',
-        "¿Deseas registrar tu entrada para la materia:," + relacion.materia_usuario[0],
+      return Alert.alert(
+        'Registrar entrada',
+        `¿Deseas registrar tu entrada para ${nombreMateria}?`,
         [
           { text: 'Cancelar', style: 'cancel' },
           {
@@ -158,24 +142,21 @@ console.log("la materia es"+nombreMateria)
             onPress: async () => {
               const { error: errorInsert } = await supabase
                 .from('asistencias')
-                .insert([
-                  {
-                    id_usuario: id_usuario,
-                    id_horario: id_horario,
-                    fecha: hoy,
-                    escaneo_inicio: horaActual,
-                    asistencia: true,
-                  },
-                ]);
+                .insert([{
+                  id_usuario: idUsuario,
+                  id_horario: horario.id,
+                  fecha: hoy,
+                  escaneo_inicio: horaActualStr,
+                  asistencia: true
+                }]);
 
               if (errorInsert) {
-                console.error('Error al registrar entrada:', errorInsert);
                 Alert.alert('❌ Error', 'No se pudo registrar la entrada.');
               } else {
-                Alert.alert('✅ Entrada registrada', 'Hora de entrada guardada exitosamente.');
+                Alert.alert('✅ Entrada registrada', 'Se registró tu entrada correctamente.');
               }
-            },
-          },
+            }
+          }
         ]
       );
     }
@@ -184,23 +165,18 @@ console.log("la materia es"+nombreMateria)
   function handleBarcodeScanned({ data }: { data: string }) {
     if (!scanned) {
       setScanned(true);
-
       if (data === codigoValido) {
         registrarAsistencia();
       } else {
-        Alert.alert('❌ Código no válido', 'Por favor, escanea un código válido.');
+        Alert.alert('❌ Código inválido', 'Por favor escanea un código válido.');
       }
-
-      setTimeout(() => {
-        setScanned(false);
-      }, 3000);
+      setTimeout(() => setScanned(false), 3000);
     }
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      {Platform.OS === 'android' ? <StatusBar hidden /> : null}
-
+      {Platform.OS === 'android' && <StatusBar hidden />}
       <CameraView
         style={styles.camera}
         facing={facing}
@@ -210,7 +186,6 @@ console.log("la materia es"+nombreMateria)
         <View style={styles.overlayTop}>
           <Text style={styles.qrText}>Escanea un código QR...</Text>
         </View>
-
         <TouchableOpacity style={styles.button} onPress={toggleCameraFacing}>
           <Text style={styles.text}>🔄</Text>
         </TouchableOpacity>
@@ -222,18 +197,9 @@ console.log("la materia es"+nombreMateria)
 export default Explore;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  message: {
-    textAlign: 'center',
-    paddingBottom: 10,
-    fontSize: 16,
-    color: 'black',
-  },
-  camera: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+  message: { textAlign: 'center', fontSize: 16, color: 'black' },
+  camera: { flex: 1 },
   button: {
     position: 'absolute',
     bottom: 60,
@@ -243,11 +209,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     zIndex: 10,
   },
-  text: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-  },
+  text: { fontSize: 24, fontWeight: 'bold', color: 'white' },
   overlayTop: {
     position: 'absolute',
     top: 40,
@@ -258,9 +220,5 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
-  qrText: {
-    color: 'white',
-    fontSize: 18,
-    textAlign: 'center',
-  },
+  qrText: { color: 'white', fontSize: 18 },
 });

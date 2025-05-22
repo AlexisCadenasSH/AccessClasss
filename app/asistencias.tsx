@@ -1,7 +1,8 @@
-import { View, Text, SafeAreaView, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, SafeAreaView, ScrollView, ImageBackground, ActivityIndicator, Alert, TouchableOpacity, Image } from 'react-native';
 import React, { useEffect, useState } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { supabase } from '@/utils/supabase';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function AsistenciasScreen() {
   const { id_materia, userId } = useLocalSearchParams();
@@ -10,9 +11,6 @@ export default function AsistenciasScreen() {
 
   let user_Id = Number(userId);
   let idMateria = Number(id_materia);
-
-  console.log("el usuario es " +user_Id);
-  console.log("la materia es " +idMateria);
 
   useEffect(() => {
     const fetchAsistencias = async () => {
@@ -30,16 +28,11 @@ export default function AsistenciasScreen() {
             escaneo_inicio,
             escaneo_fin,
             asistencia,
-            id_horario,
-            horarios (
-              id,
+            horarios!inner (
               dia_semana,
               hora_inicio,
-              id_materia_usuario,
-              materia_usuario (
-                id,
-                id_materia,
-                materias (
+              materia_usuario!inner (
+                materias!inner (
                   id,
                   nombre
                 )
@@ -54,12 +47,7 @@ export default function AsistenciasScreen() {
           Alert.alert('Error', 'No se pudieron obtener las asistencias');
           return;
         }
-        
-        console.log(JSON.stringify(data, null, 2));
-        console.log('📦 Resultado completo:', JSON.stringify(data, null, 2));
 
-        
-        
         setAsistencias(data || []);
       } catch (err) {
         console.error('Error inesperado:', err);
@@ -73,34 +61,67 @@ export default function AsistenciasScreen() {
   }, [id_materia, userId]);
 
   return (
-    <SafeAreaView className="h-full bg-white">
-      <ScrollView className="p-4">
-        <Text className="text-2xl font-bold text-red-800 text-center mb-4">Registro de Asistencias</Text>
-
-        {loading ? (
-          <View className="items-center mt-10">
-            <ActivityIndicator size="large" color="#DC2626" />
-            <Text className="text-gray-500 mt-2">Cargando asistencias...</Text>
+    <SafeAreaView className="h-full">
+      <ImageBackground
+        source={require('@/assets/images/fondo.png')} 
+        resizeMode="cover"
+        className="flex-1"
+        
+      >
+        <View className="bg-white/90 flex-1 px-4 pb-4">
+          {/* Encabezado */}
+          <View className="flex-row justify-center items-center mt-4 mb-2">
+            <Text className="text-3xl font-bold text-red-800 mr-2">Asistencias</Text>
+            <Image source={require('@/assets/images/logo_carga.png')} className="w-8 h-8" />
           </View>
-        ) : asistencias.length === 0 ? (
-          <Text className="text-center text-gray-500">No hay asistencias registradas</Text>
-        ) : (
-          asistencias.map((asistencia, index) => (
-            <View key={index} className="mb-3 bg-gray-100 rounded-xl p-4 shadow">
-              <Text className="text-black font-semibold">Fecha: {asistencia.fecha}</Text>
-              <Text>Inicio: {asistencia.escaneo_inicio || 'N/A'}</Text>
-              <Text>Fin: {asistencia.escaneo_fin || 'N/A'}</Text>
-              <Text>Asistencia: {asistencia.asistencia ? '✅' : '❌'}</Text>
-              <Text className="mt-2 text-sm text-gray-600">
-                Día: {asistencia.horarios?.dia_semana} | Hora: {asistencia.horarios?.hora_inicio}
-              </Text>
-              <Text className="text-sm text-gray-600">
-                Materia: {asistencia.horarios?.materia_usuario?.materias?.nombre}
-              </Text>
-            </View>
-          ))
-        )}
-      </ScrollView>
+
+          {/* Tabla encabezado */}
+          <View className="flex-row justify-between bg-red-800 rounded-lg px-3 py-2 mb-2">
+            <Text className="text-white font-bold w-[22%] text-center">FECHA</Text>
+            <Text className="text-white font-bold w-[22%] text-center">ENTRADA</Text>
+            <Text className="text-white font-bold w-[22%] text-center">SALIDA</Text>
+            <Text className="text-white font-bold w-[22%] text-center">ASIST.</Text>
+          </View>
+
+          {/* Lista de asistencias */}
+          <ScrollView className="space-y-2">
+            {loading ? (
+              <View className="items-center mt-10">
+                <ActivityIndicator size="large" color="#DC2626" />
+                <Text className="text-gray-500 mt-2">Cargando asistencias...</Text>
+              </View>
+            ) : asistencias.length === 0 ? (
+              <Text className="text-center text-gray-500">No hay asistencias registradas</Text>
+            ) : (
+              asistencias.map((item, index) => (
+                <View
+                  key={index}
+                  className="flex-row justify-between bg-white/90 rounded-lg px-3 py-2 border border-gray-200"
+                >
+                  <Text className="w-[22%] text-center font-medium text-black">{item.fecha}</Text>
+                  <Text className="w-[22%] text-center text-black">{item.escaneo_inicio || '---'}</Text>
+                  <Text className="w-[22%] text-center text-black">{item.escaneo_fin || '---'}</Text>
+                  <Text className="w-[22%] text-center text-xl">
+                    {item.asistencia ? '✅' : '❌'}
+                  </Text>
+                </View>
+              ))
+            )}
+          </ScrollView>
+
+          {/* Botón de regreso */}
+          <View className="items-end mt-4">
+            <TouchableOpacity
+              className="bg-red-700 p-3 rounded-full"
+              onPress={() => router.back()}
+              accessible
+              accessibilityLabel="Volver atrás"
+            >
+              <Ionicons name="arrow-back" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ImageBackground>
     </SafeAreaView>
   );
 }
