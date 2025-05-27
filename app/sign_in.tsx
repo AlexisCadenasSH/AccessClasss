@@ -7,48 +7,63 @@ import { useGlobalContext } from '@/lib/global-provider';
 import { Redirect, router } from 'expo-router';
 import { supabase } from '@/utils/supabase';
 
-
 const SignIn = () => {
-  
   const { refetch, loading, isLoggedIn } = useGlobalContext();
 
   if (!loading && isLoggedIn) return <Redirect href="/" />
 
-      const handleLogin = async () => {
-      const result = await login();
+  const handleLogin = async () => {
+    const result = await login();
 
-      if (result) {
-        refetch();
-        console.log('Login Success');
+    if (result) {
+      refetch();
+      console.log('Login Success');
 
-        const session = await account.get();
-        const userEmail = session.email
+      const session = await account.get();
+      const userEmail = session.email;
 
-        if (!userEmail) {
-          Alert.alert("Error", "No se pudo obtener el correo del usuario.");
-          return;
-        }
+      if (!userEmail) {
+        Alert.alert("Error", "No se pudo obtener el correo del usuario.");
+        return;
+      }
 
-      // Buscar el ID del usuario en Supabase a partir del correo
+      // Buscar el ID y es_admin del usuario en Supabase a partir del correo
       const { data, error } = await supabase
         .from("usuarios")
-        .select("id")
+        .select("id, es_admin")
         .eq("correo", userEmail)
         .single();
 
       if (error || !data) {
-        console.error("Error al obtener ID del usuario desde Supabase:", error?.message);
+        console.error("Error al obtener datos del usuario desde Supabase:", error?.message);
         Alert.alert("Error", "No se encontró un usuario con ese correo.");
         return;
-      } 
+      }
 
       const userId = data.id;
-      console.log("el id es: ", userId);
-      router.push({
-        pathname: "/",
-        params: {userId: userId.toString()},
-      });
-      
+      const esAdmin = data.es_admin;
+
+      console.log("ID de usuario:", userId);
+      console.log("¿Es admin?:", esAdmin);
+
+      // Redirigir según sea admin o no
+      if (esAdmin) {
+        router.push({
+          pathname: "/admin",
+          params: {
+            userId: userId.toString(),
+            es_admin: "true",
+          },
+        });
+      } else {
+        router.push({
+          pathname: "/",
+          params: {
+            userId: userId.toString(),
+            es_admin: "false",
+          },
+        });
+      }
     } else {
       Alert.alert('Error', 'Failed to login');
     }
@@ -77,4 +92,4 @@ const SignIn = () => {
   );
 };
 
-export default SignIn; 
+export default SignIn;
