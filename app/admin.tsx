@@ -8,7 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { supabase } from '@/utils/supabase';
-import { router } from 'expo-router'; // Import necesario
+import { router } from 'expo-router';
 
 interface Maestro {
   id: string;
@@ -40,9 +40,8 @@ const Admin = () => {
   }, []);
 
   const handleMaestroPress = (maestro: Maestro) => {
-    router.push(`/profile?id=${maestro.id}&modo=editar`);
-    };
-
+    router.push(`/profile?id=${maestro.id}&modo1111111=editar`);
+  };
 
   const handleEliminarMaestro = async (id: string) => {
     Alert.alert(
@@ -75,6 +74,10 @@ const Admin = () => {
 
   const handleAgregarMaestro = () => {
     router.push('/profile?modo=nuevo');
+  };
+
+  const handleVerMaterias = () => {
+    router.push('/especialidades');
   };
 
   return (
@@ -127,6 +130,15 @@ const Admin = () => {
             className="bg-red-600 px-6 py-3 rounded-full shadow"
           >
             <Text className="text-white font-bold text-lg">Agregar maestro</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View className="mt-4 items-center">
+          <TouchableOpacity
+            onPress={handleVerMaterias}
+            className="bg-red-500 px-6 py-3 rounded-full shadow"
+          >
+            <Text className="text-white font-bold text-lg">Ver materias</Text>
           </TouchableOpacity>
         </View>
 
