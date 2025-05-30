@@ -1,8 +1,8 @@
 import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import React, { useEffect, useState } from 'react';
-import { router } from 'expo-router';
-import { supabase } from '@/utils/supabase';
 import { useGlobalContext } from '@/lib/global-provider';
+import { supabase } from '@/utils/supabase';
+import { useLocalSearchParams, router } from 'expo-router';
 
 type MateriaAsignada = {
   id: number;
@@ -13,6 +13,8 @@ type MateriaAsignada = {
 
 export default function AssignedSubjects() {
   const { user } = useGlobalContext();
+  const params = useLocalSearchParams();
+  const maestroIdDesdeAdmin = params?.id as string | undefined;
 
   const [subjects, setSubjects] = useState<{ id: number; nombre: string }[]>([]);
   const [teacherName, setTeacherName] = useState('');
@@ -21,28 +23,53 @@ export default function AssignedSubjects() {
 
   useEffect(() => {
     const fetchAssignedSubjects = async () => {
-      if (!user?.email) {
-        setLoading(false);
-        Alert.alert('Error', 'No hay usuario autenticado');
-        return;
-      }
+      setLoading(true);
 
       try {
-        const { data: usuario, error: usuarioError } = await supabase
-          .from('usuarios')
-          .select('id, nombre')
-          .eq('correo', user.email)
-          .single();
+        let idFinal = null;
+        let nombreFinal = '';
 
-        if (usuarioError || !usuario) {
-          console.error('Error al obtener usuario:', usuarioError?.message);
-          Alert.alert('Error', 'No se pudo obtener la información del usuario');
+        if (maestroIdDesdeAdmin) {
+          // Consultar datos del maestro por ID
+          const { data: maestro, error: maestroError } = await supabase
+            .from('usuarios')
+            .select('id, nombre')
+            .eq('id', maestroIdDesdeAdmin)
+            .single();
+
+          if (maestroError || !maestro) {
+            console.error('Error al obtener maestro:', maestroError?.message);
+            Alert.alert('Error', 'No se pudo obtener el maestro seleccionado');
+            return;
+          }
+
+          idFinal = maestro.id;
+          nombreFinal = maestro.nombre;
+        } else if (user?.email) {
+          // Consultar el usuario actual
+          const { data: usuario, error: usuarioError } = await supabase
+            .from('usuarios')
+            .select('id, nombre')
+            .eq('correo', user.email)
+            .single();
+
+          if (usuarioError || !usuario) {
+            console.error('Error al obtener usuario:', usuarioError?.message);
+            Alert.alert('Error', 'No se pudo obtener la información del usuario');
+            return;
+          }
+
+          idFinal = usuario.id;
+          nombreFinal = usuario.nombre;
+        } else {
+          Alert.alert('Error', 'No hay usuario autenticado');
           return;
         }
 
-        setTeacherId(usuario.id);
-        setTeacherName(usuario.nombre || 'Nombre no disponible');
+        setTeacherId(idFinal);
+        setTeacherName(nombreFinal);
 
+        // Consultar materias asignadas
         const { data: materiasAsignadas, error: materiasError } = await supabase
           .from('materia_usuario')
           .select(`
@@ -50,7 +77,7 @@ export default function AssignedSubjects() {
             id_maestro,
             materias (nombre)
           `)
-          .eq('id_maestro', usuario.id);
+          .eq('id_maestro', idFinal);
 
         if (materiasError) {
           console.error('Error al cargar materias:', materiasError.message);
@@ -75,7 +102,7 @@ export default function AssignedSubjects() {
     };
 
     fetchAssignedSubjects();
-  }, [user]);
+  }, [user, maestroIdDesdeAdmin]);
 
   return (
     <SafeAreaView className="h-full bg-white">
@@ -113,8 +140,6 @@ export default function AssignedSubjects() {
                     },
                   })
                 }
-                accessible
-                accessibilityLabel={`Ver asistencia de ${subject.nombre}`}
               >
                 <View className="bg-white/80 px-4 py-3 rounded-xl shadow border border-gray-200">
                   <Text className="text-lg font-semibold text-black text-center">
@@ -130,6 +155,3 @@ export default function AssignedSubjects() {
     </SafeAreaView>
   );
 }
-
-
-

@@ -40,8 +40,18 @@ const Admin = () => {
   }, []);
 
   const handleMaestroPress = (maestro: Maestro) => {
+    // Primero ir al perfil
     router.push(`/profile?id=${maestro.id}&modo1111111=editar`);
+
+    // Después ir a la pantalla de materias del maestro
+    setTimeout(() => {
+      router.push({
+        pathname: '/(root)/(tabs)',
+        params: { id: maestro.id },
+      });
+    }, 500);
   };
+
 
   const handleEliminarMaestro = async (id: string) => {
     Alert.alert(
@@ -64,7 +74,7 @@ const Admin = () => {
               return;
             }
 
-            fetchMaestros(); // Refresca la lista
+            fetchMaestros();
             Alert.alert('Éxito', 'Maestro eliminado correctamente');
           },
         },
@@ -83,7 +93,6 @@ const Admin = () => {
   return (
     <SafeAreaView className="h-full bg-white">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="pb-10 px-6">
-
         <View className="items-center mt-6">
           <Text className="text-3xl font-bold text-red-800">Panel</Text>
           <Text className="text-xl font-semibold text-red-800 -mt-2">Administrador</Text>
@@ -141,7 +150,6 @@ const Admin = () => {
             <Text className="text-white font-bold text-lg">Ver materias</Text>
           </TouchableOpacity>
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );

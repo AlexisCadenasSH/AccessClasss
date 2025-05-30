@@ -1,6 +1,5 @@
-import {
-  View, Text, SafeAreaView, ScrollView, TouchableOpacity, Image, TextInput, Alert, ImageSourcePropType,
-} from 'react-native';
+import {View,Text,SafeAreaView,ScrollView,TouchableOpacity,Image,TextInput,Alert,} 
+from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import icons from '@/constants/icons';
@@ -9,30 +8,16 @@ import { useGlobalContext } from '@/lib/global-provider';
 import { logout } from '@/lib/appwrite';
 import { supabase } from '@/utils/supabase';
 
-interface SettingsItemProps {
-  icon: ImageSourcePropType;
-  title: string;
-  onPress: () => void;
-  textStyle?: string;
-  showArrow?: boolean;
-}
-
-const SettingsItem = ({ icon, title, onPress, textStyle, showArrow = true }: SettingsItemProps) => (
-  <TouchableOpacity onPress={onPress}>
-    <View className="flex-row items-center gap-2 px-2">
-      <Image source={icon} className="w-6 h-6" />
-      <Text className={`text-base ${textStyle}`}>{title}</Text>
-    </View>
-  </TouchableOpacity>
-);
-
 const Profile = () => {
   const { user, refetch } = useGlobalContext();
-  const { id, modo } = useLocalSearchParams();
+  const { id, modo } = useLocalSearchParams<{ id?: string; modo?: string }>();
 
   const isNuevo = modo === 'nuevo';
+  const isEditar = modo === 'editar';
 
-  const [isAdmin, setIsAdmin] = useState(false);
+  // Aquí defines que isAdmin puede ser boolean o null (inicialmente null)
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
   const [nombre, setNombre] = useState('');
   const [edad, setEdad] = useState('');
   const [telefono, setTelefono] = useState('');
@@ -49,7 +34,11 @@ const Profile = () => {
 
         if (!error && data?.es_admin === true) {
           setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
         }
+      } else {
+        setIsAdmin(false);
       }
     };
     verificarAdmin();
@@ -57,7 +46,15 @@ const Profile = () => {
 
   useEffect(() => {
     const cargarDatos = async () => {
-      if (modo === 'editar' && id) {
+      if (isNuevo) {
+        setNombre('');
+        setEdad('');
+        setTelefono('');
+        setCorreo('');
+        return;
+      }
+
+      if (isEditar && id) {
         const { data, error } = await supabase
           .from('usuarios')
           .select('nombre, edad, telefono, correo')
@@ -73,16 +70,13 @@ const Profile = () => {
         setEdad(data.edad?.toString() || '');
         setTelefono(data.telefono || '');
         setCorreo(data.correo || '');
-      } else if (modo === 'nuevo') {
-        setNombre('');
-        setEdad('');
-        setTelefono('');
-        setCorreo('');
       } else {
+        if (!user?.email) return;
+
         const { data, error } = await supabase
           .from('usuarios')
           .select('nombre, edad, telefono, correo')
-          .eq('correo', user?.email)
+          .eq('correo', user.email)
           .single();
 
         if (error) {
@@ -106,7 +100,7 @@ const Profile = () => {
       return;
     }
 
-    if (modo === 'nuevo') {
+    if (isNuevo) {
       const { data: existente } = await supabase
         .from('usuarios')
         .select('id')
@@ -132,13 +126,14 @@ const Profile = () => {
         Alert.alert('Éxito', 'Maestro agregado correctamente');
         router.push('/admin');
       }
-    } else if (modo === 'editar' && id) {
+    } else if (isEditar && id) {
       const { error } = await supabase
         .from('usuarios')
         .update({
           nombre: nombre.trim(),
           edad: parseInt(edad) || null,
           telefono,
+          ...(isAdmin ? { correo: correo.trim() } : {}),
         })
         .eq('id', id);
 
@@ -146,7 +141,6 @@ const Profile = () => {
         Alert.alert('Error', 'No se pudo actualizar el maestro');
       } else {
         Alert.alert('Éxito', 'Datos actualizados correctamente');
-        // Nos mantenemos en el perfil del maestro editado
       }
     } else {
       const { error } = await supabase
@@ -182,83 +176,80 @@ const Profile = () => {
         <View className="items-center mt-2">
           <Text className="text-2xl font-bold text-red-800">Perfil</Text>
           <Text className="text-xl font-semibold text-red-800 -mt-2">
-            {modo === 'editar' ? 'Editar maestro' : modo === 'nuevo' ? 'Nuevo maestro' : 'Personal'}
+            {modo === 'editar'
+              ? 'Editar maestro'
+              : modo === 'nuevo'
+              ? 'Nuevo maestro'
+              : 'Información personal'}
           </Text>
         </View>
 
         {isAdmin && (modo === 'editar' || modo === 'nuevo') && (
           <TouchableOpacity className="mt-6" onPress={() => router.push('/admin')}>
-            <View className="bg-gray-300 px-6 py-3 rounded-full items-center">
-              <Text className="text-red-800 font-semibold">← Regresar al panel admin</Text>
+            <View className="bg-gray-200 px-5 py-3 rounded-xl items-center">
+              <Text className="text-red-800 font-semibold">← Volver al panel admin</Text>
             </View>
           </TouchableOpacity>
         )}
 
-        <View className="mt-4 items-center">
+        <View className="mt-6 items-center">
           <Image source={images.avatar} className="w-32 h-32 rounded-full" />
         </View>
 
-        <View className="mt-6 w-full bg-red-800 p-5 rounded-lg space-y-4">
-          <View>
-            <Text className="text-white mb-1">Nombre:</Text>
-            <TextInput
-              value={nombre}
-              onChangeText={setNombre}
-              className="bg-white rounded px-3 py-2"
-            />
-          </View>
-
-          <View className="flex-row justify-between">
-            <View className="w-[48%]">
-              <Text className="text-white mb-1">Edad:</Text>
-              <TextInput
-                value={edad}
-                onChangeText={setEdad}
-                keyboardType="numeric"
-                className="bg-white rounded px-3 py-2"
-              />
-            </View>
-            <View className="w-[48%]">
-              <Text className="text-white mb-1">Teléfono:</Text>
-              <TextInput
-                value={telefono}
-                onChangeText={setTelefono}
-                keyboardType="phone-pad"
-                className="bg-white rounded px-3 py-2"
-              />
-            </View>
-          </View>
-
-          <View>
-            <Text className="text-white mb-1">Correo:</Text>
-            <TextInput
-              value={correo}
-              onChangeText={setCorreo}
-              editable={modo === 'nuevo' && isAdmin}
-              className={`rounded px-3 py-2 ${modo === 'nuevo' && isAdmin ? 'bg-white' : 'bg-gray-200 text-gray-600'}`}
-            />
-          </View>
+        <View className="mt-6">
+          <Text className="text-gray-700 mb-1">Nombre</Text>
+          <TextInput
+            value={nombre}
+            onChangeText={setNombre}
+            className="border border-gray-300 rounded px-4 py-2"
+            placeholder="Nombre completo"
+          />
         </View>
 
-        <TouchableOpacity className="mt-10" onPress={handleGuardar}>
-          <View className="bg-red-700 px-6 py-4 justify-center items-center rounded-full">
-            <Text className="text-white text-lg font-semibold">
-              {modo === 'nuevo' ? 'CREAR MAESTRO' : 'GUARDAR CAMBIOS'}
-            </Text>
-          </View>
+        <View className="mt-4">
+          <Text className="text-gray-700 mb-1">Edad</Text>
+          <TextInput
+            value={edad}
+            onChangeText={setEdad}
+            className="border border-gray-300 rounded px-4 py-2"
+            placeholder="Edad"
+            keyboardType="numeric"
+          />
+        </View>
+
+        <View className="mt-4">
+          <Text className="text-gray-700 mb-1">Teléfono</Text>
+          <TextInput
+            value={telefono}
+            onChangeText={setTelefono}
+            className="border border-gray-300 rounded px-4 py-2"
+            placeholder="Teléfono"
+            keyboardType="phone-pad"
+          />
+        </View>
+
+        <View className="mt-4">
+          <Text className="text-gray-700 mb-1">Correo</Text>
+          <TextInput
+            value={correo}
+            editable={isAdmin === true && (modo === 'nuevo' || modo === 'editar')}
+            onChangeText={setCorreo}
+            className="border border-gray-300 rounded px-4 py-2"
+            placeholder="Correo electrónico"
+            keyboardType="email-address"
+          />
+        </View>
+
+        <TouchableOpacity
+          className="mt-8 bg-red-700 rounded-full py-3 items-center"
+          onPress={handleGuardar}
+        >
+          <Text className="text-white font-semibold">Guardar</Text>
         </TouchableOpacity>
 
-        {!modo && (
-          <View className="flex flex-col mt-8 border-t pt-5 border-gray-300">
-            <SettingsItem
-              icon={icons.logout}
-              title="Cerrar sesión"
-              textStyle="text-red-600"
-              showArrow={false}
-              onPress={handleLogout}
-            />
-          </View>
-        )}
+        <TouchableOpacity className="mt-6 items-center" onPress={handleLogout}>
+          <Text className="text-red-700 font-semibold">Cerrar sesión</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
